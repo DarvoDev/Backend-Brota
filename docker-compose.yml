@@ -1,0 +1,49 @@
+# Brota: base de datos + API + proxy HTTPS.
+# Los valores por defecto son SOLO para desarrollo; define los tuyos en .env (ver .env.example).
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: brota
+      POSTGRES_USER: brota
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-brota-dev}
+    volumes:
+      - datos_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U brota -d brota"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://brota:${POSTGRES_PASSWORD:-brota-dev}@db:5432/brota
+      BROTA_JWT_SECRETO: ${BROTA_JWT_SECRETO:-secreto-de-desarrollo-cambialo}
+      BROTA_CLAVE_DATOS: ${BROTA_CLAVE_DATOS:-clave-de-datos-de-desarrollo-cambiala}
+      BROTA_CORS_ORIGENES: ${BROTA_CORS_ORIGENES:-*}
+      BROTA_ZONA_HORARIA: ${BROTA_ZONA_HORARIA:-America/Mexico_City}
+      ADMIN_CORREO: ${ADMIN_CORREO:-admin@brota.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin-brota-dev}
+    ports:
+      - "8000:8000"   # HTTP plano para desarrollo (emulador Android: 10.0.2.2:8000)
+
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "8443:8443"   # HTTPS con certificado de la CA interna de Caddy
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - datos_caddy:/data
+
+volumes:
+  datos_postgres:
+  datos_caddy:

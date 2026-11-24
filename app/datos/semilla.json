@@ -1,0 +1,180 @@
+{
+  "catalogo": [
+    {
+      "id": "m-agua",
+      "titulo": "Tomar un vaso de agua",
+      "esfuerzo": 1,
+      "duracion_min": 1
+    },
+    {
+      "id": "m-respirar",
+      "titulo": "Respirar profundo 1 minuto",
+      "esfuerzo": 1,
+      "duracion_min": 1
+    },
+    {
+      "id": "m-estirar",
+      "titulo": "Estirar brazos y cuello",
+      "esfuerzo": 1,
+      "duracion_min": 2
+    },
+    {
+      "id": "m-ventana",
+      "titulo": "Abrir la ventana y sentir el aire",
+      "esfuerzo": 1,
+      "duracion_min": 1
+    },
+    {
+      "id": "m-pie",
+      "titulo": "Ponerte de pie y dar unos pasos",
+      "esfuerzo": 1,
+      "duracion_min": 2
+    },
+    {
+      "id": "m-caminar10",
+      "titulo": "Caminar 10 minutos",
+      "esfuerzo": 2,
+      "duracion_min": 10
+    },
+    {
+      "id": "m-estiramientos",
+      "titulo": "Estiramientos suaves 5 minutos",
+      "esfuerzo": 2,
+      "duracion_min": 5
+    },
+    {
+      "id": "m-ordenar",
+      "titulo": "Ordenar un rincón pequeño",
+      "esfuerzo": 2,
+      "duracion_min": 5
+    },
+    {
+      "id": "m-escaleras",
+      "titulo": "Subir y bajar escaleras una vez",
+      "esfuerzo": 2,
+      "duracion_min": 3
+    },
+    {
+      "id": "m-caminar20",
+      "titulo": "Caminar 20 minutos al aire libre",
+      "esfuerzo": 3,
+      "duracion_min": 20
+    },
+    {
+      "id": "m-rutina",
+      "titulo": "Rutina de movimiento de 15 minutos",
+      "esfuerzo": 3,
+      "duracion_min": 15
+    },
+    {
+      "id": "m-bailar",
+      "titulo": "Bailar tres canciones",
+      "esfuerzo": 3,
+      "duracion_min": 10
+    }
+  ],
+  "mensajes": [
+    {
+      "id": "msg-1",
+      "texto": "Cada paso pequeño suma, aunque hoy no se note 🌱",
+      "categoria": "Aliento",
+      "validado_por": "Equipo Brota"
+    },
+    {
+      "id": "msg-2",
+      "texto": "Descansar también cuenta. Tu progreso sigue aquí 🌙",
+      "categoria": "Descanso",
+      "validado_por": "Equipo Brota"
+    },
+    {
+      "id": "msg-3",
+      "texto": "No tienes que hacerlo perfecto; empezar ya cambió el día 💛",
+      "categoria": "Aliento",
+      "validado_por": "Equipo Brota"
+    },
+    {
+      "id": "msg-4",
+      "texto": "Pedir ayuda es un paso valiente, no una debilidad ✨",
+      "categoria": "Ayuda",
+      "validado_por": "Equipo Brota"
+    },
+    {
+      "id": "msg-5",
+      "texto": "El jardín crece a tu ritmo, no al de nadie más 🌼",
+      "categoria": "Aliento",
+      "validado_por": "Equipo Brota"
+    },
+    {
+      "id": "msg-6",
+      "texto": "Moverte un poco también es cuidarte 🚶",
+      "categoria": "Movimiento",
+      "validado_por": "Equipo Brota"
+    }
+  ],
+  "directorio": [
+    {
+      "id": "r-911",
+      "nombre": "Emergencias 911",
+      "telefono": "911",
+      "descripcion": "Si tú o alguien más está en peligro ahora",
+      "es_emergencia": true,
+      "categoria": "Emergencia"
+    },
+    {
+      "id": "r-vida",
+      "nombre": "Línea de la Vida",
+      "telefono": "8009112000",
+      "descripcion": "Atención psicológica gratuita, 24 horas · 800 911 2000",
+      "es_emergencia": false,
+      "categoria": "Apoyo psicológico"
+    },
+    {
+      "id": "r-salud",
+      "nombre": "Servicio de Salud Mental (SSM)",
+      "telefono": "8005019000",
+      "descripcion": "Orientación y servicios de salud mental en México",
+      "es_emergencia": false,
+      "categoria": "Apoyo psicológico"
+    }
+  ],
+  "frases_muro": [
+    {
+      "id": "f-1",
+      "texto": "Hoy di un paso pequeño 🌱"
+    },
+    {
+      "id": "f-2",
+      "texto": "Volví después de un descanso 💛"
+    },
+    {
+      "id": "f-3",
+      "texto": "Hoy me tomé un rato para descansar 🌙"
+    },
+    {
+      "id": "f-4",
+      "texto": "Si hoy cuesta, aquí seguimos juntos ✨"
+    },
+    {
+      "id": "f-5",
+      "texto": "Poco a poco también se avanza 🌼"
+    },
+    {
+      "id": "f-6",
+      "texto": "Respiré y lo intenté de nuevo 🍃"
+    }
+  ],
+  "reacciones": [
+    {
+      "id": "bien_hecho",
+      "texto": "¡Bien hecho!"
+    },
+    {
+      "id": "tu_puedes",
+      "texto": "¡Tú puedes!"
+    },
+    {
+      "id": "sigue_asi",
+      "texto": "Sigue así"
+    }
+  ]
+}

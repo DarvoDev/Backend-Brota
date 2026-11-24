@@ -1,0 +1,12 @@
+# Entorno local
+.venv/
+venv/
+.env
+*.db
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+.idea/
+.vscode/

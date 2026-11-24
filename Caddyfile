@@ -1,0 +1,16 @@
+# Proxy HTTPS para Brota.
+# "tls internal" usa la autoridad certificadora local de Caddy (certificado autofirmado):
+# ideal para la escuela / desarrollo. En producción con dominio propio basta con
+# poner el dominio y quitar "tls internal" para obtener un certificado de Let's Encrypt.
+{
+	# No intentar instalar la CA en el sistema del contenedor ni redirigir HTTP.
+	skip_install_trust
+	auto_https disable_redirects
+	# Clientes que se conectan por IP no envían SNI: usar este nombre.
+	default_sni localhost
+}
+
+localhost:8443, 127.0.0.1:8443, 10.0.2.2:8443 {
+	tls internal
+	reverse_proxy api:8000
+}
