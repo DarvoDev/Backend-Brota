@@ -1,16 +1,22 @@
 # Proxy HTTPS para Brota.
-# "tls internal" usa la autoridad certificadora local de Caddy (certificado autofirmado):
-# ideal para la escuela / desarrollo. En producción con dominio propio basta con
-# poner el dominio y quitar "tls internal" para obtener un certificado de Let's Encrypt.
+# Se configura con variables de entorno (los valores por defecto sirven para desarrollo local):
+#   BROTA_SITIO        Dominio(s) o IP(s) que atiende, separados por coma.
+#                      Por defecto: localhost, 127.0.0.1, 10.0.2.2 (emulador Android).
+#   BROTA_TLS          "internal" = certificado de la CA interna de Caddy (autofirmado).
+#                      Un correo (p. ej. tu@correo.com) = certificado de Let's Encrypt;
+#                      requiere un dominio real que apunte al servidor y los puertos 80/443 abiertos.
+#   BROTA_SNI_DEFECTO  Nombre que se usa cuando el cliente no envía SNI (al conectarse por IP).
+#                      Si te conectas por IP, pon aquí esa misma IP.
+# Caddy escucha dentro del contenedor en 443 (HTTPS) y 80 (retos de Let's Encrypt);
+# el puerto publicado en el host lo decide docker compose.
 {
 	# No intentar instalar la CA en el sistema del contenedor ni redirigir HTTP.
 	skip_install_trust
 	auto_https disable_redirects
-	# Clientes que se conectan por IP no envían SNI: usar este nombre.
-	default_sni localhost
+	default_sni {$BROTA_SNI_DEFECTO:localhost}
 }
 
-localhost:8443, 127.0.0.1:8443, 10.0.2.2:8443 {
-	tls internal
+{$BROTA_SITIO:localhost, 127.0.0.1, 10.0.2.2} {
+	tls {$BROTA_TLS:internal}
 	reverse_proxy api:8000
 }

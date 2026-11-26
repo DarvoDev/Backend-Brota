@@ -1,5 +1,6 @@
 # Brota: base de datos + API + proxy HTTPS.
 # Los valores por defecto son SOLO para desarrollo; define los tuyos en .env (ver .env.example).
+# Para desplegar en un servidor / Portainer usa docker-compose.portainer.yml.
 services:
   db:
     image: postgres:16-alpine
@@ -39,11 +40,13 @@ services:
     depends_on:
       - api
     ports:
-      - "8443:8443"   # HTTPS con certificado de la CA interna de Caddy
+      - "8443:443"    # HTTPS con certificado de la CA interna de Caddy
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - datos_caddy:/data
+      - config_caddy:/config
 
 volumes:
   datos_postgres:
   datos_caddy:
+  config_caddy:

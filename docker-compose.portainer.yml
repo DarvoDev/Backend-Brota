@@ -1,0 +1,74 @@
+# Brota para Portainer (o cualquier servidor): base de datos + API + proxy HTTPS.
+#
+# Despliegue: Portainer → Stacks → Add stack → Repository, con
+#   Compose path: docker-compose.portainer.yml
+# y las variables en "Environment variables" (ver README, sección Portainer).
+#
+# Diferencias con docker-compose.yml (desarrollo):
+#   - Sin bind mounts: el Caddyfile va dentro de la imagen del proxy (Dockerfile.caddy).
+#   - Los secretos son obligatorios: si falta alguno, el despliegue falla en vez de
+#     arrancar con valores de desarrollo.
+#   - La API no publica el puerto 8000: solo se llega a ella por HTTPS a través del proxy.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: brota
+      POSTGRES_USER: brota
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Falta la variable POSTGRES_PASSWORD}"
+    volumes:
+      - datos_postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U brota -d brota"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: brota-api:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql+psycopg://brota:${POSTGRES_PASSWORD:?Falta la variable POSTGRES_PASSWORD}@db:5432/brota"
+      BROTA_JWT_SECRETO: "${BROTA_JWT_SECRETO:?Falta la variable BROTA_JWT_SECRETO}"
+      BROTA_CLAVE_DATOS: "${BROTA_CLAVE_DATOS:?Falta la variable BROTA_CLAVE_DATOS}"
+      BROTA_CORS_ORIGENES: "${BROTA_CORS_ORIGENES:-*}"
+      BROTA_ZONA_HORARIA: "${BROTA_ZONA_HORARIA:-America/Mexico_City}"
+      ADMIN_CORREO: "${ADMIN_CORREO:?Falta la variable ADMIN_CORREO}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:?Falta la variable ADMIN_PASSWORD}"
+    expose:
+      - "8000"
+
+  proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile.caddy
+    image: brota-proxy:latest
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      # Dominio o IP pública/LAN del servidor (p. ej. brota.midominio.com o 192.168.1.50)
+      BROTA_SITIO: "${BROTA_SITIO:?Falta la variable BROTA_SITIO (dominio o IP del servidor)}"
+      # "internal" = certificado autofirmado; un correo = Let's Encrypt (requiere dominio)
+      BROTA_TLS: "${BROTA_TLS:-internal}"
+      # Si no se define, se usa BROTA_SITIO (necesario al conectarse por IP)
+      BROTA_SNI_DEFECTO: "${BROTA_SNI_DEFECTO:-${BROTA_SITIO}}"
+    ports:
+      - "${BROTA_PUERTO_HTTPS:-8443}:443"
+      - "${BROTA_PUERTO_HTTP:-8080}:80"
+    volumes:
+      - datos_caddy:/data
+      - config_caddy:/config
+
+volumes:
+  datos_postgres:
+  datos_caddy:
+  config_caddy:

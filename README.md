@@ -29,7 +29,7 @@ El contrato completo de la API está en [`docs/CONTRATO_API.md`](docs/CONTRATO_A
 |---|---|---|---|
 | `db` | `postgres:16-alpine` | interno 5432 | Base de datos con volumen y healthcheck |
 | `api` | `Dockerfile` (python:3.12-slim, usuario sin privilegios) | **8000** (HTTP) | La API |
-| `proxy` | `caddy:2-alpine` | **8443** (HTTPS) | Termina TLS (`tls internal`) y reenvía a `api` |
+| `proxy` | `caddy:2-alpine` (en servidor: `Dockerfile.caddy`) | **8443** (HTTPS) | Termina TLS (`tls internal` o Let's Encrypt) y reenvía a `api` |
 
 Estructura del código:
 
@@ -65,6 +65,49 @@ Al arrancar se crean las tablas, se carga `semilla.json` si las tablas están va
 crea la cuenta de administrador definida en `ADMIN_CORREO` / `ADMIN_PASSWORD`.
 
 Para detenerlo: `docker compose down` (agrega `-v` para borrar también los datos).
+
+### En un servidor con Portainer
+
+Para el servidor se usa `docker-compose.portainer.yml`, que no monta archivos del host
+(el `Caddyfile` va dentro de la imagen `Dockerfile.caddy`), no publica el puerto 8000 y
+**exige** los secretos: si falta alguno, el despliegue falla en lugar de arrancar con
+valores de desarrollo.
+
+1. Portainer → **Stacks** → **Add stack** → **Repository**.
+2. URL de este repositorio (y credenciales si es privado), rama `main`,
+   **Compose path**: `docker-compose.portainer.yml`.
+3. En **Environment variables** define:
+
+   | Variable | Ejemplo | Obligatoria |
+   |---|---|---|
+   | `POSTGRES_PASSWORD` | cadena aleatoria | sí |
+   | `BROTA_JWT_SECRETO` | `python -c "import secrets; print(secrets.token_urlsafe(48))"` | sí |
+   | `BROTA_CLAVE_DATOS` | `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` | sí |
+   | `ADMIN_CORREO` / `ADMIN_PASSWORD` | cuenta del administrador | sí |
+   | `BROTA_SITIO` | `192.168.1.50` o `brota.midominio.com` | sí |
+   | `BROTA_TLS` | `internal` (defecto) o un correo para Let's Encrypt | no |
+   | `BROTA_SNI_DEFECTO` | por defecto igual a `BROTA_SITIO`; defínela si `BROTA_SITIO` lleva varias direcciones | no |
+   | `BROTA_PUERTO_HTTPS` / `BROTA_PUERTO_HTTP` | `8443` / `8080` (defecto); con Let's Encrypt `443` / `80` | no |
+   | `BROTA_CORS_ORIGENES`, `BROTA_ZONA_HORARIA` | igual que en desarrollo | no |
+
+4. **Deploy the stack**. Portainer clona el repo y construye las imágenes `brota-api` y
+   `brota-proxy`. Para actualizar tras un `git push`: abre el stack → **Pull and redeploy**
+   (marca *Re-pull image and redeploy*), o activa **GitOps updates**.
+
+Dos modos de HTTPS:
+
+- **Solo IP** (red local / escuela): `BROTA_SITIO=<IP del servidor>`, `BROTA_TLS=internal`.
+  La app usa `https://<IP>:8443/api/v1` y debe confiar en la CA interna de Caddy; cópiala con
+  `docker cp <contenedor-proxy>:/data/caddy/pki/authorities/local/root.crt .`
+  (Portainer → Containers → proxy → Console también sirve).
+- **Dominio propio**: el dominio debe apuntar a la IP pública del servidor;
+  `BROTA_SITIO=brota.midominio.com`, `BROTA_TLS=tu@correo.com`,
+  `BROTA_PUERTO_HTTPS=443`, `BROTA_PUERTO_HTTP=80` (ambos abiertos en el firewall).
+  Caddy obtiene y renueva el certificado de Let's Encrypt solo. URL: `https://brota.midominio.com/api/v1`.
+
+Los datos viven en los volúmenes `datos_postgres` y `datos_caddy`; borrar el stack no los
+borra salvo que también elimines los volúmenes. **No cambies `BROTA_CLAVE_DATOS`** después
+del primer despliegue: los datos sincronizados ya guardados dejarían de poder descifrarse.
 
 ### Sin Docker (desarrollo rápido)
 
@@ -104,7 +147,8 @@ El certificado HTTPS de Caddy es autofirmado (CA interna). Para usar el puerto 8
 la app en desarrollo hay que confiar en ese certificado o aceptarlo explícitamente. La CA
 raíz se puede copiar con
 `docker compose cp proxy:/data/caddy/pki/authorities/local/root.crt .`.
-Para usar HTTPS desde otra IP agrégala a la lista de sitios del `Caddyfile`.
+Para usar HTTPS desde otra IP agrégala con la variable `BROTA_SITIO` (p. ej.
+`BROTA_SITIO=localhost, 10.0.2.2, 192.168.1.50`).
 
 ## Endpoints
 

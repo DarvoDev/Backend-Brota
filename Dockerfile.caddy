@@ -1,0 +1,9 @@
+# Imagen del proxy HTTPS de Brota: Caddy con el Caddyfile incluido.
+# Así no hace falta montar el archivo desde el host (Portainer no resuelve bien
+# los bind mounts con rutas relativas).
+FROM caddy:2-alpine
+
+COPY Caddyfile /etc/caddy/Caddyfile
+
+# Validar la configuración al construir la imagen
+RUN caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
