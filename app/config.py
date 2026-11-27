@@ -40,9 +40,7 @@ class Configuracion:
     zona_horaria: str = field(
         default_factory=lambda: os.getenv("BROTA_ZONA_HORARIA", "America/Mexico_City")
     )
-    # Duración de la sesión de la app (días). La app se reconecta sola al
-    # iniciar sesión; al vencer pide la contraseña una vez.
-    jwt_dias: int = field(default_factory=lambda: int(os.getenv("BROTA_JWT_DIAS", "90")))
+    jwt_dias: int = 7
 
     def advertir_si_inseguro(self) -> None:
         if self.jwt_secreto == SECRETO_DESARROLLO or self.clave_datos == CLAVE_DESARROLLO:

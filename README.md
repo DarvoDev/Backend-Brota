@@ -135,7 +135,6 @@ uvicorn app.main:app --reload     # usa SQLite local (brota_local.db) si no hay 
 | `ADMIN_CORREO` / `ADMIN_PASSWORD` | Administrador que se crea al arrancar | `admin@brota.local` / `admin-brota-dev` |
 | `BROTA_CORS_ORIGENES` | Orígenes CORS separados por coma | `*` |
 | `BROTA_ZONA_HORARIA` | Zona para decidir "qué día es hoy" | `America/Mexico_City` |
-| `BROTA_JWT_DIAS` | Días que dura la sesión de la app | `90` |
 
 La API muestra una advertencia en el log mientras se usen los secretos de desarrollo.
 **Nunca subas el archivo `.env` al repositorio** (ya está en `.gitignore`).
