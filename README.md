@@ -29,7 +29,7 @@ El contrato completo de la API está en [`docs/CONTRATO_API.md`](docs/CONTRATO_A
 |---|---|---|---|
 | `db` | `postgres:16-alpine` | interno 5432 | Base de datos con volumen y healthcheck |
 | `api` | `Dockerfile` (python:3.12-slim, usuario sin privilegios) | **8000** (HTTP) | La API |
-| `proxy` | `caddy:2-alpine` (en servidor: `Dockerfile.caddy`) | **8443** (HTTPS) | Termina TLS (`tls internal` o Let's Encrypt) y reenvía a `api` |
+| `proxy` | `Dockerfile.caddy` (caddy:2-alpine + Caddyfile) | **8443** (HTTPS) | Termina TLS (`tls internal` o Let's Encrypt) y reenvía a `api` |
 
 Estructura del código:
 
@@ -53,7 +53,7 @@ tests/               # pytest con SQLite en memoria
 Requisitos: Docker Desktop (o Docker Engine con Compose v2).
 
 ```bash
-cp .env.example .env      # y cambia los secretos (opcional en desarrollo)
+cp .env.example .env      # obligatorio: el compose exige los secretos (los de ejemplo sirven en local)
 docker compose up --build
 ```
 
@@ -68,15 +68,16 @@ Para detenerlo: `docker compose down` (agrega `-v` para borrar también los dato
 
 ### En un servidor con Portainer
 
-Para el servidor se usa `docker-compose.portainer.yml`, que no monta archivos del host
-(el `Caddyfile` va dentro de la imagen `Dockerfile.caddy`), no publica el puerto 8000 y
-**exige** los secretos: si falta alguno, el despliegue falla en lugar de arrancar con
-valores de desarrollo.
+Local y servidor usan el mismo `docker-compose.yml` (stack `brota`). No monta archivos del
+host (el `Caddyfile` va dentro de la imagen `Dockerfile.caddy`) y **exige** los secretos: si
+falta alguno, el despliegue falla en lugar de arrancar con valores inseguros. Los puertos
+publicados también salen de variables.
 
-1. Portainer → **Stacks** → **Add stack** → **Repository**.
+1. Portainer → **Stacks** → **Add stack** → **Name: `brota`** → **Repository**.
 2. URL de este repositorio (y credenciales si es privado), rama `main`,
-   **Compose path**: `docker-compose.portainer.yml`.
-3. En **Environment variables** define:
+   **Compose path**: `docker-compose.yml`.
+3. En **Environment variables** → *Load variables from .env file*: pega `.env.example` con
+   tus valores (todas están comentadas ahí):
 
    | Variable | Ejemplo | Obligatoria |
    |---|---|---|
@@ -84,11 +85,16 @@ valores de desarrollo.
    | `BROTA_JWT_SECRETO` | `python -c "import secrets; print(secrets.token_urlsafe(48))"` | sí |
    | `BROTA_CLAVE_DATOS` | `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` | sí |
    | `ADMIN_CORREO` / `ADMIN_PASSWORD` | cuenta del administrador | sí |
-   | `BROTA_SITIO` | `192.168.1.50` o `brota.midominio.com` | sí |
+   | `BROTA_SITIO` | `192.168.1.50` o `brota.midominio.com` (defecto: localhost) | no |
    | `BROTA_TLS` | `internal` (defecto) o un correo para Let's Encrypt | no |
    | `BROTA_SNI_DEFECTO` | por defecto igual a `BROTA_SITIO`; defínela si `BROTA_SITIO` lleva varias direcciones | no |
-   | `BROTA_PUERTO_HTTPS` / `BROTA_PUERTO_HTTP` | `8443` / `8080` (defecto); con Let's Encrypt `443` / `80` | no |
+   | `API_IP` / `API_PUERTO` | `127.0.0.1` / `8000` (defecto): API en HTTP plano | no |
+   | `PROXY_IP` / `BROTA_PUERTO_HTTPS` / `BROTA_PUERTO_HTTP` | `0.0.0.0` / `8443` / `8080` (defecto); con Let's Encrypt `443` / `80` | no |
+   | `POSTGRES_PUERTO` | `5433` (defecto), solo en `127.0.0.1` del host | no |
    | `BROTA_CORS_ORIGENES`, `BROTA_ZONA_HORARIA` | igual que en desarrollo | no |
+
+   Si el servidor ya tiene otro proxy en 80/443, deja Caddy en puertos libres y apunta tu
+   proxy a `http://127.0.0.1:<API_PUERTO>`.
 
 4. **Deploy the stack**. Portainer clona el repo y construye las imágenes `brota-api` y
    `brota-proxy`. Para actualizar tras un `git push`: abre el stack → **Pull and redeploy**

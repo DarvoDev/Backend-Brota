@@ -3,7 +3,7 @@
 Guía para la persona que administra el servidor. Brota es una app móvil (Android) que se
 conecta a esta API para respaldar datos, el muro de la comunidad y el «compañero fantasma».
 
-**Qué se despliega:** tres contenedores Docker definidos en `docker-compose.portainer.yml`:
+**Qué se despliega:** tres contenedores Docker definidos en `docker-compose.yml`:
 
 | Contenedor | Imagen | Función |
 |---|---|---|
@@ -38,7 +38,7 @@ una IP sola o `BROTA_TLS=internal` no funcionan para los teléfonos.
 
 ## 2. Variables de entorno
 
-Crea un archivo `.env` junto a `docker-compose.portainer.yml` (o ponlas en Portainer →
+Crea un archivo `.env` junto a `docker-compose.yml` (o ponlas en Portainer →
 Stack → *Environment variables*). Todas las secretas son **obligatorias**: si falta una, el
 despliegue falla en lugar de arrancar con valores de desarrollo.
 
@@ -73,8 +73,8 @@ openssl rand -base64 48 | tr -d '\n/+=' ; echo
 > envían los usuarios; si cambia, lo ya guardado no se podrá descifrar. Guárdala junto con
 > los demás secretos en un lugar seguro.
 
-> `BROTA_SITIO` es obligatoria aunque uses el caso B (el archivo compose la valida); ahí
-> pon el dominio igualmente.
+> Puertos (opcionales): `API_PUERTO` (8000, solo `127.0.0.1`), `POSTGRES_PUERTO` (5433,
+> solo `127.0.0.1`), `API_IP`, `PROXY_IP`. Ver `.env.example`, todas están comentadas.
 
 ## 3. Caso A — puertos 80/443 libres (Caddy incluido)
 
@@ -82,36 +82,28 @@ openssl rand -base64 48 | tr -d '\n/+=' ; echo
 git clone https://github.com/DarvoDev/Backend-Brota.git
 cd Backend-Brota
 nano .env        # contenido de la sección 2
-docker compose -f docker-compose.portainer.yml up -d --build
+docker compose up -d --build
 ```
 
 - Abre **80/tcp y 443/tcp** en el firewall del VPS y del proveedor (`ufw allow 80,443/tcp`).
   El 80 es necesario para que Let's Encrypt valide el dominio.
 - Caddy obtiene y renueva el certificado solo. El primer arranque puede tardar ~1 minuto.
-- La API **no** publica el puerto 8000: solo se llega a ella a través de Caddy.
+- La API publica el puerto `API_PUERTO` (8000) solo en `127.0.0.1`: desde fuera solo se llega por Caddy.
 
 **Con Portainer:** Stacks → Add stack → Repository → URL del repo, rama `main`,
-*Compose path* `docker-compose.portainer.yml`, variables de la sección 2 → *Deploy the stack*.
+**Name `brota`**, *Compose path* `docker-compose.yml`, variables de la sección 2 → *Deploy the stack*.
 
 ## 4. Caso B — ya existe un proxy en el servidor
 
-Se levantan solo `db` y `api`, y la API se publica únicamente en `127.0.0.1:8000`.
+No hace falta ningún archivo extra: la API ya se publica en `127.0.0.1:${API_PUERTO}`
+(por defecto `127.0.0.1:8000`).
 
-1. Junto a `docker-compose.portainer.yml` crea `docker-compose.proxy-externo.yml`:
+1. En el `.env` / variables de Portainer deja Caddy en puertos libres (no 80/443):
+   `BROTA_PUERTO_HTTPS=8443`, `BROTA_PUERTO_HTTP=8080`, `BROTA_TLS=internal`
+   (o `PROXY_IP=127.0.0.1` para que ni siquiera se vea desde fuera).
+   Si 8000 está ocupado, cambia `API_PUERTO`.
 
-   ```yaml
-   services:
-     api:
-       ports:
-         - "127.0.0.1:8000:8000"
-   ```
-
-2. Arranca sin el servicio `proxy`:
-
-   ```bash
-   docker compose -f docker-compose.portainer.yml -f docker-compose.proxy-externo.yml \
-     up -d --build db api
-   ```
+2. Arranca igual que en el caso A: `docker compose up -d --build`.
 
 3. En tu proxy, envía el dominio a `http://127.0.0.1:8000` con su certificado de
    Let's Encrypt. Ejemplo para nginx:
@@ -143,9 +135,9 @@ curl https://brota.tudominio.com/api/v1/salud
 ```
 
 - Documentación interactiva (Swagger): `https://brota.tudominio.com/docs`
-- Estado de los contenedores: `docker compose -f docker-compose.portainer.yml ps`
+- Estado de los contenedores: `docker compose ps`
   (`api` debe aparecer como `healthy`).
-- Logs: `docker compose -f docker-compose.portainer.yml logs -f api proxy`
+- Logs: `docker compose logs -f api proxy`
 
 Al arrancar por primera vez la API crea las tablas, carga los datos iniciales (catálogo,
 mensajes, frases) y la cuenta de administrador de `ADMIN_CORREO` / `ADMIN_PASSWORD`.
@@ -155,22 +147,21 @@ mensajes, frases) y la cuenta de administrador de `ADMIN_CORREO` / `ADMIN_PASSWO
 ```bash
 cd Backend-Brota
 git pull
-docker compose -f docker-compose.portainer.yml up -d --build
+docker compose up -d --build
 ```
 
-(Caso B: añade `-f docker-compose.proxy-externo.yml` y `db api` como en la sección 4.)
 En Portainer: abre el stack → *Pull and redeploy*. Los datos se conservan en los volúmenes.
 
 ## 7. Respaldos
 
 ```bash
 # Respaldo
-docker compose -f docker-compose.portainer.yml exec -T db \
+docker compose exec -T db \
   pg_dump -U brota brota | gzip > brota_$(date +%F).sql.gz
 
 # Restaurar (sobre una base vacía)
 gunzip -c brota_AAAA-MM-DD.sql.gz | \
-  docker compose -f docker-compose.portainer.yml exec -T db psql -U brota brota
+  docker compose exec -T db psql -U brota brota
 ```
 
 Se recomienda un respaldo diario con `cron`. Guarda también el `.env`: sin
@@ -182,7 +173,7 @@ Se recomienda un respaldo diario con `cron`. Guarda también el `.env`: sin
   contraseñas solo como hash (bcrypt). Los contactos de emergencia nunca llegan al servidor.
 - No expongas el puerto 5432 de PostgreSQL ni el 8000 de la API a internet.
 - **Nunca** borres los volúmenes (`docker compose down -v`) en producción.
-- Para detener sin perder datos: `docker compose -f docker-compose.portainer.yml down`.
+- Para detener sin perder datos: `docker compose down`.
 
 ## 9. Problemas comunes
 
