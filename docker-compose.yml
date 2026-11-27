@@ -1,50 +1,102 @@
-# Brota: base de datos + API + proxy HTTPS.
-# Los valores por defecto son SOLO para desarrollo; define los tuyos en .env (ver .env.example).
-# Para desplegar en un servidor / Portainer usa docker-compose.portainer.yml.
+# Brota: base de datos + API + proxy HTTPS. Un solo archivo para local y para Portainer.
+#
+# Local:      cp .env.example .env  &&  docker compose up -d --build
+# Portainer:  Stacks → Add stack → Name: brota → Repository → Compose path: docker-compose.yml
+#             → Environment variables: pega el .env con tus valores → Deploy.
+#
+# Todo sale de variables (ver .env.example). Los secretos son obligatorios: si falta
+# alguno el despliegue falla en vez de arrancar con valores inseguros.
+# No hay bind mounts: el Caddyfile va horneado en la imagen del proxy (Dockerfile.caddy).
+name: brota
+
+x-logs: &logs
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+
 services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: brota
-      POSTGRES_USER: brota
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-brota-dev}
+      POSTGRES_DB: ${POSTGRES_DB:-brota}
+      POSTGRES_USER: ${POSTGRES_USER:-brota}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Falta la variable POSTGRES_PASSWORD}
     volumes:
       - datos_postgres:/var/lib/postgresql/data
+    ports:
+      # Solo en el loopback del host (pgAdmin / túnel SSH); nunca expuesto a internet.
+      - "127.0.0.1:${POSTGRES_PUERTO:-5433}:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U brota -d brota"]
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 5s
       timeout: 5s
       retries: 10
+      start_period: 10s
+    <<: *logs
 
   api:
     build: .
+    image: brota-api:latest
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+psycopg://brota:${POSTGRES_PASSWORD:-brota-dev}@db:5432/brota
-      BROTA_JWT_SECRETO: ${BROTA_JWT_SECRETO:-secreto-de-desarrollo-cambialo}
-      BROTA_CLAVE_DATOS: ${BROTA_CLAVE_DATOS:-clave-de-datos-de-desarrollo-cambiala}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-brota}:${POSTGRES_PASSWORD:?Falta la variable POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-brota}
+      BROTA_JWT_SECRETO: ${BROTA_JWT_SECRETO:?Falta la variable BROTA_JWT_SECRETO}
+      BROTA_CLAVE_DATOS: ${BROTA_CLAVE_DATOS:?Falta la variable BROTA_CLAVE_DATOS}
       BROTA_CORS_ORIGENES: ${BROTA_CORS_ORIGENES:-*}
       BROTA_ZONA_HORARIA: ${BROTA_ZONA_HORARIA:-America/Mexico_City}
-      ADMIN_CORREO: ${ADMIN_CORREO:-admin@brota.local}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin-brota-dev}
+      ADMIN_CORREO: ${ADMIN_CORREO:?Falta la variable ADMIN_CORREO}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Falta la variable ADMIN_PASSWORD}
     ports:
-      - "8000:8000"   # HTTP plano para desarrollo (emulador Android: 10.0.2.2:8000)
+      # HTTP plano. API_IP=127.0.0.1 → solo el host (proxy externo del VPS, emulador 10.0.2.2).
+      # API_IP=0.0.0.0 → accesible desde la red (p. ej. Nginx Proxy Manager en otro contenedor).
+      - "${API_IP:-127.0.0.1}:${API_PUERTO:-8000}:8000"
+    read_only: true
+    tmpfs:
+      - /tmp:uid=10001,gid=10001
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    <<: *logs
 
   proxy:
-    image: caddy:2-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile.caddy
+    image: brota-proxy:latest
     restart: unless-stopped
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    environment:
+      # Dominio(s) o IP(s) separados por coma
+      BROTA_SITIO: ${BROTA_SITIO:-localhost, 127.0.0.1, 10.0.2.2}
+      # "internal" = certificado autofirmado; un correo = Let's Encrypt (requiere dominio)
+      BROTA_TLS: ${BROTA_TLS:-internal}
+      # Nombre para clientes sin SNI (conexión por IP). Por defecto = BROTA_SITIO
+      BROTA_SNI_DEFECTO: ${BROTA_SNI_DEFECTO:-${BROTA_SITIO:-localhost}}
     ports:
-      - "8443:443"    # HTTPS con certificado de la CA interna de Caddy
+      - "${PROXY_IP:-0.0.0.0}:${BROTA_PUERTO_HTTPS:-8443}:443"
+      - "${PROXY_IP:-0.0.0.0}:${BROTA_PUERTO_HTTP:-8080}:80"
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - datos_caddy:/data
       - config_caddy:/config
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ["no-new-privileges:true"]
+    healthcheck:
+      # Puerto 2019 = API de administración de Caddy (solo dentro del contenedor)
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    <<: *logs
 
 volumes:
   datos_postgres:
